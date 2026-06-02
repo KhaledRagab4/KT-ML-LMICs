@@ -13,21 +13,26 @@ QUERY = '(implementation[Title/Abstract] OR implemented[Title/Abstract] OR "know
 MAX_RESULTS = 5
 
 
-def collect_pubmed_articles():
-    output_path = Path(OUTPUT_FILE)
+def collect_pubmed_articles(
+    query=QUERY,
+    country=COUNTRY,
+    max_results=MAX_RESULTS,
+    output_file=OUTPUT_FILE,
+):
+    output_path = Path(output_file)
 
     if output_path.exists():
         output_path.unlink()
 
-    pmids = search_pubmed(QUERY, max_results=MAX_RESULTS)
+    pmids = search_pubmed(query, max_results=max_results)
     articles = fetch_article_details(pmids)
 
     for article in articles:
-        article["country"] = COUNTRY
+        article["country"] = country
         article["source"] = "PubMed"
-        article["query"] = QUERY
+        article["query"] = query
 
-        save_record(article, OUTPUT_FILE)
+        save_record(article, output_file)
 
     return articles
 
