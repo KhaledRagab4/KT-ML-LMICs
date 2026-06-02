@@ -8,13 +8,13 @@ KT-ML-LMICs stands for:
 - **ML**: Machine Learning
 - **LMICs**: Low- and Middle-Income Countries
 
-This project is a learning MVP that uses Python, PubMed APIs, rule-based screening, and later LLM-assisted extraction to organize implementation and knowledge translation evidence from LMICs.
+This project is a learning MVP that uses Python, PubMed APIs, rule-based screening, a simple agentic decision point, and later LLM-assisted extraction to organize implementation and knowledge translation evidence from LMICs.
 
 ## Project title
 
 **Published LMIC Implementation Evidence Agent**
 
-A Python prototype that searches PubMed for implementation and knowledge translation evidence in LMICs, screens candidate articles, extracts structured records, applies a simple agentic decision point, and generates a simple country evidence profile.
+A Python prototype that searches PubMed for implementation and knowledge translation evidence in LMICs, screens candidate articles, extracts structured records, applies a simple agentic decision point, and generates a country evidence profile.
 
 ## Current MVP
 
@@ -30,38 +30,32 @@ It can:
 - Extract structured implementation evidence fields
 - Generate a Markdown country profile
 
-## Project pipeline
+## How to run
 
-```text
-Search PubMed
-->
-Fetch abstracts
-->
-Save raw articles
-->
-Screen articles
-->
-Agentic decision
-->
-Extract structured records
-->
-Generate country profile
+Activate the virtual environment:
 
-How to run
-
-Activate the virtual environment first:
-
+```powershell
 .venv\Scripts\activate
+```
 
 Run the full pipeline:
 
+```powershell
 python run_pipeline.py
-Main outputs
+```
+
+## Main outputs
+
+```text
 data/raw_pubmed_articles.jsonl
 data/screened_articles.jsonl
 data/extracted_records.jsonl
 outputs/ethiopia_profile.md
-Main files
+```
+
+## Main files
+
+```text
 pubmed_tool.py       PubMed search and fetch functions
 collect_pubmed.py    Collects raw PubMed articles
 screener.py          Rule-based article screening
@@ -70,6 +64,8 @@ extractor.py         Rule-based structured extraction
 profiler.py          Generates the country evidence profile
 run_pipeline.py      Runs the full workflow
 database.py          JSONL save/load helpers
-Important note
+```
+
+## Important note
 
 This is a learning MVP. Screening and extraction are currently rule-based and should be reviewed by a human. LLM-based structured extraction can be added later.
