@@ -14,7 +14,7 @@ def search_pubmed(query, max_results=5):
         "retmax": max_results,
     }
 
-    response = requests.get(SEARCH_URL, params=params)
+    response = requests.get(SEARCH_URL, params=params, timeout=30)
     response.raise_for_status()
 
     data = response.json()
@@ -30,7 +30,7 @@ def fetch_article_details(pmids):
         "retmode": "xml",
     }
 
-    response = requests.get(FETCH_URL, params=params)
+    response = requests.get(FETCH_URL, params=params, timeout=30)
     response.raise_for_status()
 
     root = ET.fromstring(response.text)
@@ -38,13 +38,18 @@ def fetch_article_details(pmids):
     articles = []
 
     for article in root.findall(".//PubmedArticle"):
-        pmid = article.findtext(".//PMID")
-        title = article.findtext(".//ArticleTitle")
-        abstract_parts = article.findall(".//AbstractText")
+        pmid = (article.findtext(".//PMID") or "").strip()
+        title = (article.findtext(".//ArticleTitle") or "").strip()
 
-        abstract = " ".join(
-            part.text for part in abstract_parts if part.text
-        )
+        abstract_parts = []
+
+        for part in article.findall(".//AbstractText"):
+            text = " ".join(part.itertext()).strip()
+
+            if text:
+                abstract_parts.append(text)
+
+        abstract = " ".join(abstract_parts)
 
         articles.append({
             "pmid": pmid,
@@ -56,7 +61,8 @@ def fetch_article_details(pmids):
 
 
 if __name__ == "__main__":
-    query = "implementation Ethiopia"
+    query = '(implementation[Title/Abstract] OR implemented[Title/Abstract] OR "knowledge translation"[Title/Abstract] OR "implementation science"[Title/Abstract]) AND Ethiopia[Title/Abstract]'
+
     pmids = search_pubmed(query, max_results=3)
     articles = fetch_article_details(pmids)
 
