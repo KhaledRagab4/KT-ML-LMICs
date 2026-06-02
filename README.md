@@ -1,6 +1,20 @@
-# Published LMIC Implementation Evidence Agent
+# KT-ML-LMICs
 
-A Python prototype that searches PubMed for implementation and knowledge translation evidence in LMICs, screens candidate articles, extracts structured records, and generates a simple country evidence profile.
+## What does the name mean?
+
+KT-ML-LMICs stands for:
+
+- **KT**: Knowledge Translation
+- **ML**: Machine Learning
+- **LMICs**: Low- and Middle-Income Countries
+
+This project is a learning MVP that uses Python, PubMed APIs, rule-based screening, and later LLM-assisted extraction to organize implementation and knowledge translation evidence from LMICs.
+
+## Project title
+
+**Published LMIC Implementation Evidence Agent**
+
+A Python prototype that searches PubMed for implementation and knowledge translation evidence in LMICs, screens candidate articles, extracts structured records, applies a simple agentic decision point, and generates a simple country evidence profile.
 
 ## Current MVP
 
