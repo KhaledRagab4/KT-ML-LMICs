@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -9,6 +10,23 @@ OUTPUT_FILE = "outputs/ethiopia_profile.md"
 COUNTRY = "Ethiopia"
 
 
+def clean_text(value):
+    if value is None:
+        return ""
+
+    text = str(value)
+
+    text = text.replace("\u2009", " ")
+    text = text.replace("\u202f", " ")
+    text = text.replace("\u00a0", " ")
+    text = text.replace("\ufeff", "")
+    text = text.replace("\u200b", "")
+
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+
 def count_list_values(records, field_name):
     counter = Counter()
 
@@ -16,7 +34,10 @@ def count_list_values(records, field_name):
         values = record.get(field_name, [])
 
         for value in values:
-            counter[value] += 1
+            cleaned_value = clean_text(value)
+
+            if cleaned_value:
+                counter[cleaned_value] += 1
 
     return counter
 
@@ -43,13 +64,13 @@ def build_country_profile(records, country):
     country_records = []
 
     for record in records:
-        record_country = record.get("country", "")
+        record_country = clean_text(record.get("country", ""))
 
         if record_country.lower() == country.lower():
             country_records.append(record)
 
     study_design_counter = Counter(
-        record.get("study_design") or "unclear"
+        clean_text(record.get("study_design") or "unclear")
         for record in country_records
     )
 
@@ -75,6 +96,8 @@ def build_country_profile(records, country):
         "",
         f"- Country: {country}",
         f"- Total extracted records: {len(country_records)}",
+        "- Extraction method: rule-based prototype",
+        "- Review note: extracted barriers and facilitators require human review",
         "",
     ]
 
@@ -118,9 +141,9 @@ def build_country_profile(records, country):
         lines.append("")
     else:
         for record in country_records:
-            pmid = record.get("pmid", "").strip()
-            title = record.get("title", "").strip()
-            study_design = record.get("study_design", "unclear")
+            pmid = clean_text(record.get("pmid", ""))
+            title = clean_text(record.get("title", ""))
+            study_design = clean_text(record.get("study_design", "unclear"))
 
             lines.append(
                 f"- PMID {pmid}: {title} "
