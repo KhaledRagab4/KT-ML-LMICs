@@ -1,4 +1,6 @@
+import json
 import os
+from datetime import date
 
 from dotenv import load_dotenv
 from google import genai
@@ -23,43 +25,69 @@ def get_gemini_client():
     return genai.Client(api_key=api_key)
 
 
-def test_gemini_connection():
+def clean_llm_json(raw_text):
     """
-    Small connection test before adding Gemini to the real pipeline.
+    Clean common LLM JSON problems and convert text into a Python dictionary.
     """
-    client = get_gemini_client()
+    text = raw_text.strip()
 
-    response = client.models.generate_content(
-        model=MODEL,
-        contents="Reply with exactly: Gemini connection works",
-    )
+    if text.startswith("```json"):
+        text = text.replace("```json", "", 1).strip()
 
-    print(response.text.strip())
+    if text.startswith("```"):
+        text = text.replace("```", "", 1).strip()
+
+    if text.endswith("```"):
+        text = text[:-3].strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        print("Could not parse JSON. Raw model output:")
+        print(raw_text)
+        return None
 
 
 def build_extraction_prompt(article):
     """
-    Build a future extraction prompt for a PubMed article.
-    We are not using it in the pipeline yet.
+    Build a prompt for extracting structured implementation evidence.
+    Gemini should focus on analytical fields, not trusted metadata.
     """
     title = article.get("title", "")
     abstract = article.get("abstract", "")
 
     prompt = f"""
-You are helping extract structured implementation evidence from a PubMed article.
+You are extracting structured implementation evidence from a PubMed abstract.
 
-Return concise JSON with these fields:
-- implementation_study: true or false
-- study_design: short string
-- barriers: list of strings
-- facilitators: list of strings
-- setting: short string
-- reason: short explanation
+Return ONLY valid JSON.
+Do not include markdown.
+Do not include explanations outside JSON.
 
-Important rules:
-- Do not invent information.
-- If something is missing, write "not reported".
-- Base your answer only on the title and abstract.
+Rules:
+- Use only the title and abstract.
+- Do not invent missing information.
+- If a field is missing, write "not reported".
+- If you are unsure, use extraction_confidence = "low".
+
+Return exactly this JSON schema:
+
+{{
+  "lmic_region": "Sub-Saharan Africa or not reported",
+  "health_domain": "",
+  "study_design": "",
+  "setting": "national | district | hospital | primary care | community | mixed | not reported",
+  "intervention_description": "",
+  "implementation_outcome_focus": "",
+  "barriers": [],
+  "enablers": [],
+  "outcomes_measured": [],
+  "funding_reported": "yes | no | unclear | not reported",
+  "funding_level_estimate": "none | low | moderate | high | unclear | not reported",
+  "kt_strategy_mentioned": "",
+  "is_real_implementation_project": true,
+  "reason_for_inclusion": "",
+  "extraction_confidence": "high | medium | low"
+}}
 
 Title:
 {title}
@@ -71,5 +99,118 @@ Abstract:
     return prompt.strip()
 
 
+def complete_record(article, llm_record):
+    """
+    Combine trusted article metadata with Gemini extraction.
+
+    Important:
+    Metadata such as PMID, title, year, journal, and country should come
+    from our PubMed/article data, not from the LLM.
+    """
+    today = date.today().isoformat()
+
+    pmid = article.get("pmid", "not reported")
+    title = article.get("title", "not reported")
+    year = article.get("year", "not reported")
+    journal = article.get("journal", "not reported")
+    country = article.get("country", "not reported")
+
+    final_record = {
+        "record_id": f"PMID-{pmid}",
+        "pmid": pmid,
+        "title": title,
+        "year": year,
+        "journal": journal,
+        "country": country,
+        "lmic_region": "not reported",
+        "health_domain": "not reported",
+        "study_design": "not reported",
+        "setting": "not reported",
+        "intervention_description": "not reported",
+        "implementation_outcome_focus": "not reported",
+        "barriers": [],
+        "enablers": [],
+        "outcomes_measured": [],
+        "funding_reported": "not reported",
+        "funding_level_estimate": "not reported",
+        "kt_strategy_mentioned": "not reported",
+        "is_real_implementation_project": True,
+        "reason_for_inclusion": "not reported",
+        "extraction_confidence": "low",
+        "abstract_source": True,
+        "extraction_date": today,
+        "human_validation_status": "pending",
+    }
+
+    if llm_record:
+        for key, value in llm_record.items():
+            if key in final_record:
+                final_record[key] = value
+
+    # Force trusted metadata again after merging LLM output.
+    final_record["record_id"] = f"PMID-{pmid}"
+    final_record["pmid"] = pmid
+    final_record["title"] = title
+    final_record["year"] = year
+    final_record["journal"] = journal
+    final_record["country"] = country
+    final_record["abstract_source"] = True
+    final_record["human_validation_status"] = "pending"
+    final_record["extraction_date"] = today
+
+    return final_record
+
+
+def extract_record_with_gemini(article):
+    """
+    Send one article to Gemini and return a complete structured record.
+    """
+    client = get_gemini_client()
+    prompt = build_extraction_prompt(article)
+
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+    )
+
+    llm_record = clean_llm_json(response.text)
+
+    if llm_record is None:
+        return None
+
+    return complete_record(article, llm_record)
+
+
+def demo_article():
+    """
+    A fake/simple article for testing Gemini extraction.
+    We are not using PubMed live data here yet.
+    """
+    return {
+        "pmid": "12345678",
+        "title": "Implementation of a primary health care quality improvement program in Ethiopia",
+        "abstract": (
+            "This study describes the implementation of a quality improvement "
+            "program in primary health care facilities in Ethiopia. The intervention "
+            "included provider training, audit and feedback, supportive supervision, "
+            "and use of local implementation teams. Reported barriers included "
+            "limited staffing, supply shortages, and competing clinical priorities. "
+            "Facilitators included leadership support, regular mentorship, and "
+            "community engagement. Outcomes included service readiness, adherence "
+            "to clinical guidelines, and provider-reported feasibility."
+        ),
+        "year": "2023",
+        "journal": "Implementation Science Communications",
+        "country": "Ethiopia",
+    }
+
+
 if __name__ == "__main__":
-    test_gemini_connection()
+    article = demo_article()
+    record = extract_record_with_gemini(article)
+
+    if record is None:
+        print("Gemini extraction failed.")
+    else:
+        print(json.dumps(record, indent=2, ensure_ascii=False))
+        
