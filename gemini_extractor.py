@@ -7,6 +7,7 @@ from google import genai
 
 
 MODEL = "gemini-3.5-flash"
+RAW_ARTICLES_PATH = "data/raw_pubmed_articles.jsonl"
 
 
 def get_gemini_client():
@@ -103,7 +104,6 @@ def complete_record(article, llm_record):
     """
     Combine trusted article metadata with Gemini extraction.
 
-    Important:
     Metadata such as PMID, title, year, journal, and country should come
     from our PubMed/article data, not from the LLM.
     """
@@ -113,7 +113,7 @@ def complete_record(article, llm_record):
     title = article.get("title", "not reported")
     year = article.get("year", "not reported")
     journal = article.get("journal", "not reported")
-    country = article.get("country", "not reported")
+    country = article.get("country", "Ethiopia")
 
     final_record = {
         "record_id": f"PMID-{pmid}",
@@ -181,10 +181,37 @@ def extract_record_with_gemini(article):
     return complete_record(article, llm_record)
 
 
+def load_first_raw_article(path=RAW_ARTICLES_PATH):
+    """
+    Load the first article from our raw PubMed JSONL file.
+    JSONL means: one JSON object per line.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Could not find {path}. Run python run_pipeline.py first."
+        )
+
+    with open(path, "r", encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+
+            if not line:
+                continue
+
+            article = json.loads(line)
+
+            if "country" not in article:
+                article["country"] = "Ethiopia"
+
+            return article
+
+    raise ValueError(f"No articles found in {path}.")
+
+
 def demo_article():
     """
     A fake/simple article for testing Gemini extraction.
-    We are not using PubMed live data here yet.
+    Kept as fallback, but Day 18 uses a real saved PubMed article.
     """
     return {
         "pmid": "12345678",
@@ -206,11 +233,17 @@ def demo_article():
 
 
 if __name__ == "__main__":
-    article = demo_article()
+    article = load_first_raw_article()
     record = extract_record_with_gemini(article)
 
     if record is None:
         print("Gemini extraction failed.")
     else:
+        print("\nGemini real PubMed article test")
+        print("=" * 40)
+        print(f"PMID: {record['pmid']}")
+        print(f"Title: {record['title']}")
+        print(f"Is real implementation project? {record['is_real_implementation_project']}")
+        print(f"Reason: {record['reason_for_inclusion']}")
+        print("\nFull structured record:")
         print(json.dumps(record, indent=2, ensure_ascii=False))
-        
