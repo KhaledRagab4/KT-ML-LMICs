@@ -7,6 +7,7 @@ from google import genai
 
 MODEL = "gemini-3.5-flash"
 RAW_ARTICLES_PATH = "data/raw_pubmed_articles.jsonl"
+GEMINI_SCREENED_PATH = "data/gemini_screened_articles.jsonl"
 
 
 def get_gemini_client():
@@ -73,6 +74,15 @@ def load_raw_articles(path=RAW_ARTICLES_PATH, limit=5):
 
     return articles
 
+def save_screening_result(result, path=GEMINI_SCREENED_PATH):
+    """
+    Save one Gemini screening result as one JSON line.
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "a", encoding="utf-8") as file:
+        json_line = json.dumps(result, ensure_ascii=False)
+        file.write(json_line + "\n")
 
 def build_screening_prompt(article):
     """
@@ -148,6 +158,9 @@ def main():
     client = get_gemini_client()
     articles = load_raw_articles(limit=5)
 
+    if os.path.exists(GEMINI_SCREENED_PATH):
+        os.remove(GEMINI_SCREENED_PATH)
+
     print("Gemini screening batch test")
     print("=" * 40)
 
@@ -160,7 +173,13 @@ def main():
         title = article.get("title", "not reported")
 
         decision = screen_article_with_gemini(client, article)
+        result = {
+            "pmid": pmid,
+            "title": title,
+            "gemini_screening": decision,
+        }
 
+        save_screening_result(result)
         print(f"\nArticle {index}")
         print("-" * 40)
         print(f"PMID: {pmid}")
